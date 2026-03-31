@@ -6,5 +6,4 @@ pyyaml
 torch
 transformers
 accelerate
-huggingface_hub
-requests
+faster-whisper

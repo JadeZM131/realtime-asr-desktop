@@ -1,12 +1,11 @@
 """
-VibeVoice-ASR 推理引擎
+ASR 推理引擎 - 使用 Faster Whisper
 """
 import os
 import yaml
 import torch
 import numpy as np
 from typing import Optional, List, Dict, Any
-from huggingface_hub import snapshot_download
 
 
 class ASREngine:
@@ -14,6 +13,7 @@ class ASREngine:
         self.config = self._load_config(config_path)
         self.model = None
         self.device = self.config.get("asr", {}).get("device", "cuda")
+        self.model_size = self.config.get("asr", {}).get("whisper_size", "large-v3")
 
     def _load_config(self, config_path: str) -> dict:
         """加载配置文件"""
@@ -23,36 +23,18 @@ class ASREngine:
         return {}
 
     def load_model(self):
-        """加载 VibeVoice-ASR 模型"""
-        model_name = self.config.get("asr", {}).get("model", "microsoft/VibeVoice-ASR")
+        """加载 Faster Whisper 模型"""
+        print(f"正在加载 Faster Whisper 模型: {self.model_size}")
 
-        print(f"正在加载模型: {model_name}")
-
-        # 如果模型未下载，尝试下载
-        model_path = os.path.join("./models", model_name.replace("/", "_"))
-        if not os.path.exists(model_path):
-            print("模型未找到，正在从 HuggingFace 下载...")
-            snapshot_download(model_name, local_dir=model_path)
-
-        # 导入 VibeVoice-ASR 并加载模型
-        # 注意：实际使用时需要根据 VibeVoice-ASR 的 API 进行调整
-        try:
-            from VibeVoice_ASR import VibeVoiceASR
-            self.model = VibeVoiceASR(model_path if os.path.exists(model_path) else model_name)
-            self.model.to(self.device)
-            print("模型加载成功")
-        except ImportError:
-            print("警告: VibeVoice-ASR 未安装，使用 Faster Whisper 作为备选")
-            self._load_fallback_model()
-
-    def _load_fallback_model(self):
-        """加载备用模型（Faster Whisper）"""
         try:
             from faster_whisper import WhisperModel
-            model_size = self.config.get("asr", {}).get("whisper_size", "large-v3")
-            self.model = WhisperModel(model_size, device="cuda", compute_type="int8")
-            self.is_fallback = True
-            print(f"已加载 Faster Whisper {model_size} 作为备选")
+            # 使用 int8 量化减少显存占用
+            self.model = WhisperModel(
+                self.model_size,
+                device="cuda",
+                compute_type="int8"
+            )
+            print(f"模型加载成功: {self.model_size}")
         except Exception as e:
             raise RuntimeError(f"无法加载模型: {e}")
 
@@ -78,23 +60,20 @@ class ASREngine:
         # 将字节转换为 numpy 数组
         audio_array = self._bytes_to_array(audio_data)
 
-        if self.is_fallback:
-            # 使用 Faster Whisper
-            result = self.model.transcribe(audio_array, language=None)
-            segments = []
-            for seg in result.segments:
-                segments.append({
-                    "speaker": "Speaker 1",
-                    "text": seg.text,
-                    "start": seg.start,
-                    "end": seg.end,
-                    "language": result.language or "auto"
-                })
-            return {"segments": segments}
-        else:
-            # 使用 VibeVoice-ASR
-            result = self.model.transcribe(audio_array)
-            return result
+        # 使用 Faster Whisper 转写
+        result = self.model.transcribe(audio_array, language=None)
+
+        segments = []
+        for seg in result.segments:
+            segments.append({
+                "speaker": "Speaker 1",
+                "text": seg.text.strip(),
+                "start": seg.start,
+                "end": seg.end,
+                "language": result.language or "auto"
+            })
+
+        return {"segments": segments}
 
     def _bytes_to_array(self, audio_bytes: bytes) -> np.ndarray:
         """将音频字节转换为 numpy 数组"""
