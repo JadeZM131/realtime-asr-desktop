@@ -1,0 +1,5 @@
+pyqt6
+websockets
+pyyaml
+numpy
+pyaudio

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+websockets[client]
+numpy
+pyyaml
+torch
+transformers
+accelerate
+huggingface_hub
+requests
