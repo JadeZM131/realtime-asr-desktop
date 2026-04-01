@@ -35,10 +35,12 @@ class ASREngine:
         try:
             from faster_whisper import WhisperModel
             # 使用 int8 量化减少显存占用
+            # download_root 指定本地模型路径
             self.model = WhisperModel(
                 self.model_size,
                 device="cuda",
-                compute_type="int8"
+                compute_type="int8",
+                download_root="/data/lzm/model/faster_whisper"
             )
             print(f"模型加载成功: {self.model_size}")
         except Exception as e:
