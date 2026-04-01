@@ -1,6 +1,6 @@
 """
 音频捕获模块
-从虚拟声卡（VB-Cable）捕获系统音频
+从系统音频（立体声混音）捕获系统播放的声音
 """
 import pyaudio
 import numpy as np
@@ -44,23 +44,25 @@ class AudioCapture:
             devices.append({
                 "index": i,
                 "name": info["name"],
-                "channels": info["maxInputChannels"]
+                "maxInputChannels": info["maxInputChannels"],
+                "maxOutputChannels": info["maxOutputChannels"],
+                "defaultSampleRate": info["defaultSampleRate"]
             })
         return devices
 
-    def find_vb_cable(self) -> Optional[int]:
-        """查找音频输入设备（优先立体声混音）"""
+    def find_stereo_mix(self) -> Optional[dict]:
+        """查找立体声混音设备"""
         devices = self.list_devices()
 
         # 1. 优先查找立体声混音（系统声音捕获）
         for dev in devices:
             if "立体声混音" in dev["name"] or "stereo mix" in dev["name"].lower():
-                return dev["index"]
+                return dev
 
         # 2. 其次查找 VB-Cable
         for dev in devices:
             if "cable" in dev["name"].lower() or "virtual" in dev["name"].lower():
-                return dev["index"]
+                return dev
 
         return None
 
@@ -87,15 +89,19 @@ class AudioCapture:
         if self.audio is None:
             self.audio = pyaudio.PyAudio()
 
-        # 使用指定设备或自动查找 VB-Cable
-        device = device_index or self.device_index or self.find_vb_cable()
-
-        if device is None:
-            # 使用默认输入设备
-            print("未找到 VB-Cable，使用默认设备")
-            device = None
-        else:
-            print(f"使用音频设备: {device}")
+        # 如果没有指定设备，自动查找
+        if device_index is None and self.device_index is None:
+            device_info = self.find_stereo_mix()
+            if device_info:
+                device_index = device_info["index"]
+                # 使用设备的默认采样率和通道数
+                self.sample_rate = int(device_info["defaultSampleRate"])
+                self.channels = min(2, device_info["maxInputChannels"])
+                print(f"使用设备: {device_info['name']}")
+                print(f"  采样率: {self.sample_rate}, 通道数: {self.channels}")
+            else:
+                print("警告: 未找到可用的音频输入设备")
+                return
 
         try:
             self.stream = self.audio.open(
@@ -103,7 +109,7 @@ class AudioCapture:
                 channels=self.channels,
                 rate=self.sample_rate,
                 input=True,
-                input_device_index=device,
+                input_device_index=device_index or self.device_index,
                 frames_per_buffer=self.chunk_size,
                 stream_callback=self._audio_callback
             )
