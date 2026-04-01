@@ -49,11 +49,19 @@ class AudioCapture:
         return devices
 
     def find_vb_cable(self) -> Optional[int]:
-        """查找 VB-Cable 设备"""
+        """查找音频输入设备（优先立体声混音）"""
         devices = self.list_devices()
+
+        # 1. 优先查找立体声混音（系统声音捕获）
+        for dev in devices:
+            if "立体声混音" in dev["name"] or "stereo mix" in dev["name"].lower():
+                return dev["index"]
+
+        # 2. 其次查找 VB-Cable
         for dev in devices:
             if "cable" in dev["name"].lower() or "virtual" in dev["name"].lower():
                 return dev["index"]
+
         return None
 
     def _audio_callback(self, in_data, frame_count, time_info, status):
