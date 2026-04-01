@@ -2,6 +2,12 @@
 ASR 推理引擎 - 使用 Faster Whisper
 """
 import os
+
+# 自定义模型保存路径
+MODEL_PATH = "/data/lzm/model/faster_whisper"
+os.environ["HF_HOME"] = MODEL_PATH
+os.environ["HF_CACHE_DIR"] = MODEL_PATH
+
 import yaml
 import torch
 import numpy as np
