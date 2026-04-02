@@ -71,15 +71,43 @@ class ASREngine:
         # 使用 Faster Whisper 转写
         result = self.model.transcribe(audio_array, language=None)
 
+        # 打印调试信息
+        print(f"[ASR] 转写完成, type: {type(result)}")
+
         segments = []
-        for seg in result.segments:
-            segments.append({
-                "speaker": "Speaker 1",
-                "text": seg.text.strip(),
-                "start": seg.start,
-                "end": seg.end,
-                "language": result.language or "auto"
-            })
+
+        # 兼容处理：result 可能返回不同格式
+        try:
+            # 方法 1: result.segments 是可迭代对象
+            if hasattr(result, 'segments'):
+                seg_iterable = result.segments
+                print(f"[ASR] segments type: {type(seg_iterable)}")
+
+                # 如果是 SegmentSequence 或类似对象
+                if hasattr(seg_iterable, '__iter__'):
+                    for seg in seg_iterable:
+                        segments.append({
+                            "speaker": "Speaker 1",
+                            "text": seg.text.strip() if hasattr(seg, 'text') else str(seg),
+                            "start": float(seg.start) if hasattr(seg, 'start') else 0.0,
+                            "end": float(seg.end) if hasattr(seg, 'end') else 0.0,
+                            "language": result.language or "auto"
+                        })
+                # 如果是 tuple
+                elif isinstance(seg_iterable, tuple):
+                    for seg in seg_iterable:
+                        if hasattr(seg, 'text'):
+                            segments.append({
+                                "speaker": "Speaker 1",
+                                "text": seg.text.strip(),
+                                "start": float(seg.start),
+                                "end": float(seg.end),
+                                "language": result.language or "auto"
+                            })
+        except Exception as e:
+            print(f"[ASR] 处理 segments 错误: {e}")
+
+        print(f"[ASR] 解析出 {len(segments)} 个片段")
 
         return {"segments": segments}
 

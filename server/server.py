@@ -107,16 +107,21 @@ async def websocket_asr(websocket: WebSocket):
                 # 接收音频数据
                 audio_base64 = data.get("data", "")
                 audio_bytes = base64.b64decode(audio_base64)
+                print(f"收到音频数据: {len(audio_bytes)} bytes")
 
                 async with buffer_lock:
                     audio_buffer += audio_bytes
+
+                print(f"当前 buffer 大小: {len(audio_buffer)} bytes")
 
                 # 音频 buffer 足够时进行转写
                 # 假设 16kHz, 16-bit, 单声道，每秒 32KB
                 # 缓冲 2 秒数据进行转写（约 64KB）
                 if len(audio_buffer) >= 64000:
+                    print("开始转写...")
                     try:
                         result = asr_engine.transcribe(audio_buffer)
+                        print(f"转写结果: {result}")
 
                         # 如果翻译启用，翻译文本
                         if translator and data.get("translate", False):
