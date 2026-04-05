@@ -68,6 +68,11 @@ class ASREngine:
         # 将字节转换为 numpy 数组
         audio_array = self._bytes_to_array(audio_data)
 
+        # 调试：打印音频数据信息
+        print(f"[ASR] 音频数据长度: {len(audio_data)}, array shape: {audio_array.shape}")
+        print(f"[ASR] 音频数据范围: min={audio_array.min()}, max={audio_array.max()}")
+        print(f"[ASR] 音频数据非零比例: {np.count_nonzero(audio_array) / len(audio_array) * 100:.2f}%")
+
         # 使用 Faster Whisper 转写
         result = self.model.transcribe(audio_array, language=None)
 
